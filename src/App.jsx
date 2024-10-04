@@ -161,22 +161,30 @@ function FlowWithCustomNodes() {
     setNodes((nds) => {
       const nodeToDelete = nds.find(n => n.id === id);
       if (nodeToDelete && nodeToDelete.parentId) {
-        // If the node has a parent, remove it from the parent's children
-        return nds.map(n => {
-          if (n.id === nodeToDelete.parentId) {
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                children: n.data.children.filter(childId => childId !== id)
-              }
-            };
-          }
-          return n;
-        }).filter(n => n.id !== id);
+        const parentGroup = nds.find(n => n.id === nodeToDelete.parentId);
+        const updatedParentChildren = parentGroup.data.children.filter(childId => childId !== id);
+        
+        if (updatedParentChildren.length === 0) {
+          // If this was the last child, remove both the node and the parent group
+          return nds.filter(n => n.id !== id && n.id !== nodeToDelete.parentId);
+        } else {
+          // Otherwise, update the parent's children array
+          return nds.map(n => {
+            if (n.id === nodeToDelete.parentId) {
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  children: updatedParentChildren
+                }
+              };
+            }
+            return n;
+          }).filter(n => n.id !== id);
+        }
       }
-      // If it's a group node, also delete all its children
-      return nds.filter(n => n.id !== id && n.parentId !== id);
+      // If it's not in a group, just remove the node
+      return nds.filter(n => n.id !== id);
     });
     setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
   }, [setNodes, setEdges]);
@@ -197,31 +205,67 @@ function FlowWithCustomNodes() {
         y: event.clientY,
       });
 
-      // Create a new group for the dropped node
-      const newGroupId = `group-${groupCounter + 1}`;
-      setGroupCounter(prev => prev + 1);
-      const newGroup = {
-        id: newGroupId,
-        type: 'group',
-        position: { x: position.x - 50, y: position.y - 50 },
-        style: { width: 300, height: 300 },
-        data: { label: `Group ${groupCounter + 1}`, children: [] },
-      };
+      // Check if the node is being dropped onto an existing group
+      const droppedOnGroup = nodes.find(node => 
+        node.type === 'group' &&
+        position.x >= node.position.x &&
+        position.x <= node.position.x + node.style.width &&
+        position.y >= node.position.y &&
+        position.y <= node.position.y + node.style.height
+      );
 
-      const newNode = {
-        id: `${type}-${nodes.length + 1}`,
-        type,
-        position: { x: 50, y: 50 }, // Position within the group
-        data: { label, onDelete: onDeleteNode },
-        parentId: newGroupId,
-        extent: 'parent',
-      };
+      const newNodeId = `${type}-${nodes.length + 1}`;
 
-      setNodes(nds => [
-        ...nds,
-        newGroup,
-        newNode
-      ]);
+      if (droppedOnGroup) {
+        // If dropped on an existing group, add it to that group
+        const newNode = {
+          id: newNodeId,
+          type,
+          position: {
+            x: position.x - droppedOnGroup.position.x,
+            y: position.y - droppedOnGroup.position.y,
+          },
+          data: { label, onDelete: onDeleteNode },
+          parentId: droppedOnGroup.id,
+          extent: 'parent',
+        };
+
+        setNodes(nds => nds.map(n => {
+          if (n.id === droppedOnGroup.id) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                children: [...(n.data.children || []), newNodeId],
+              },
+            };
+          }
+          return n;
+        }).concat(newNode));
+      } else {
+        // If dropped on empty canvas, create a new group
+        const newGroupId = `group-${groupCounter + 1}`;
+        setGroupCounter(prev => prev + 1);
+        
+        const newGroup = {
+          id: newGroupId,
+          type: 'group',
+          position: { x: position.x - 50, y: position.y - 50 },
+          style: { width: 300, height: 300 },
+          data: { label: `Group ${groupCounter + 1}`, children: [newNodeId] },
+        };
+
+        const newNode = {
+          id: newNodeId,
+          type,
+          position: { x: 50, y: 50 }, // Position within the group
+          data: { label, onDelete: onDeleteNode },
+          parentId: newGroupId,
+          extent: 'parent',
+        };
+
+        setNodes(nds => [...nds, newGroup, newNode]);
+      }
     },
     [reactFlowInstance, nodes, setNodes, onDeleteNode, groupCounter]
   );
