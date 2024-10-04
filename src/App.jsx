@@ -23,8 +23,8 @@ const NODE_WIDTH = 180;
 const NODE_HEIGHT = 80;
 const GROUP_PADDING = 20;
 const LABEL_HEIGHT_PERCENTAGE = 15;
-const GROUP_WIDTH = NODE_WIDTH + (GROUP_PADDING * 2);
-const INITIAL_GROUP_HEIGHT = NODE_HEIGHT + (GROUP_PADDING * 2);
+const GROUP_WIDTH = 250; // Adjusted for better visibility
+const INITIAL_GROUP_HEIGHT = 150; // Adjusted for better visibility
 const VERTICAL_NODE_SPACING = 20; // New constant for vertical spacing between nodes
 
 const CustomTextInputNode = ({ data, id }) => {
@@ -41,16 +41,16 @@ const CustomTextInputNode = ({ data, id }) => {
           Delete
         </Button>
       </NodeToolbar>
-      <div style={{ width: NODE_WIDTH, height: NODE_HEIGHT, padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
+      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5', width: '100%' }}>
         <strong>{data.label}</strong>
         <div>
           <Input
             placeholder="Type your answer"
-            style={{ marginTop: 5, width: '100%' }}
+            style={{ marginTop: 5, width: '100%', padding: '5px' }}
           />
         </div>
-        <Handle type="source" position="right" />
-        <Handle type="target" position="left" />
+        <Handle type="source" position="right" style={{ top: '50%' }} />
+        <Handle type="target" position="left" style={{ top: '50%' }} />
       </div>
     </>
   );
@@ -132,22 +132,26 @@ const CustomDelayNode = ({ data, id }) => {
 };
 
 const GroupNode = ({ data }) => {
-  const labelHeight = data.height * (LABEL_HEIGHT_PERCENTAGE / 100);
+  const labelHeight = `${LABEL_HEIGHT_PERCENTAGE}%`;
   return (
     <div style={{ 
       width: GROUP_WIDTH, 
-      height: data.height, 
+      height: '100%', 
       border: '1px solid #ddd', 
       borderRadius: 5, 
-      backgroundColor: 'rgba(240,240,240,0.5)',
+      backgroundColor: 'white',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      overflow: 'hidden'
     }}>
       <div style={{ 
-        height: `${labelHeight}px`, 
+        height: labelHeight, 
         padding: '5px 10px', 
         fontWeight: 'bold', 
-        borderBottom: '1px solid #ddd'
+        backgroundColor: 'pink',
+        borderBottom: '1px solid #ddd',
+        display: 'flex',
+        alignItems: 'center'
       }}>
         {data.label}
       </div>
@@ -294,6 +298,7 @@ function FlowWithCustomNodes() {
           data: { label, onDelete: onDeleteNode },
           parentId: droppedOnGroup.id,
           extent: 'parent',
+          style: { width: GROUP_WIDTH - (GROUP_PADDING * 2) } // Ensure child node fits within group
         };
 
         setNodes(nds => nds.map(n => {
