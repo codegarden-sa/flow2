@@ -1,5 +1,5 @@
 // App.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ReactFlow, {
   ReactFlowProvider,
   addEdge,
@@ -18,6 +18,15 @@ import 'antd/dist/reset.css';
 import 'reactflow/dist/style.css';// Updated import for Ant Design CSS
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 
+// Define constants for node and group dimensions
+const NODE_WIDTH = 180;
+const NODE_HEIGHT = 80;
+const GROUP_PADDING = 20;
+const LABEL_HEIGHT_PERCENTAGE = 15;
+const GROUP_WIDTH = NODE_WIDTH + (GROUP_PADDING * 2);
+const INITIAL_GROUP_HEIGHT = NODE_HEIGHT + (GROUP_PADDING * 2);
+const VERTICAL_NODE_SPACING = 20; // New constant for vertical spacing between nodes
+
 const CustomTextInputNode = ({ data, id }) => {
   return (
     <>
@@ -32,7 +41,7 @@ const CustomTextInputNode = ({ data, id }) => {
           Delete
         </Button>
       </NodeToolbar>
-      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
+      <div style={{ width: NODE_WIDTH, height: NODE_HEIGHT, padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
         <strong>{data.label}</strong>
         <div>
           <Input
@@ -122,17 +131,43 @@ const CustomDelayNode = ({ data, id }) => {
   );
 };
 
+const GroupNode = ({ data }) => {
+  const labelHeight = data.height * (LABEL_HEIGHT_PERCENTAGE / 100);
+  return (
+    <div style={{ 
+      width: GROUP_WIDTH, 
+      height: data.height, 
+      border: '1px solid #ddd', 
+      borderRadius: 5, 
+      backgroundColor: 'rgba(240,240,240,0.5)',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <div style={{ 
+        height: `${labelHeight}px`, 
+        padding: '5px 10px', 
+        fontWeight: 'bold', 
+        borderBottom: '1px solid #ddd'
+      }}>
+        {data.label}
+      </div>
+      <div style={{ 
+        flex: 1, 
+        padding: GROUP_PADDING,
+        position: 'relative'
+      }}>
+        {data.children}
+      </div>
+    </div>
+  );
+};
+
 const nodeTypes = {
   textInput: CustomTextInputNode,
   quickReply: CustomQuickReplyNode,
   condition: CustomConditionNode,
   delay: CustomDelayNode,
-  group: ({ data }) => (
-    <div style={{ padding: 10, border: '1px solid #ddd', borderRadius: 5, backgroundColor: 'rgba(240,240,240,0.5)' }}>
-      <div style={{ fontWeight: 'bold', marginBottom: 10 }}>{data.label}</div>
-      {data.children}
-    </div>
-  ),
+  group: GroupNode,
 };
 
 const initialNodes = [
@@ -152,6 +187,34 @@ function FlowWithCustomNodes() {
   const [groupCounter, setGroupCounter] = useState(0);
   const reactFlowInstance = useReactFlow();
 
+  const updateGroupDimensions = useCallback((groupId) => {
+    setNodes(nds => {
+      const group = nds.find(n => n.id === groupId);
+      if (!group) return nds;
+
+      const childNodes = nds.filter(n => n.parentId === groupId);
+      if (childNodes.length === 0) return nds;
+
+      const maxY = Math.max(...childNodes.map(n => n.position.y + NODE_HEIGHT));
+      const newHeight = Math.max(INITIAL_GROUP_HEIGHT, maxY + GROUP_PADDING);
+
+      return nds.map(n => n.id === groupId ? {
+        ...n,
+        style: { ...n.style, height: newHeight },
+        data: { ...n.data, height: newHeight }
+      } : n);
+    });
+  }, [setNodes]);
+
+  const getNextChildPosition = useCallback((groupId) => {
+    const childNodes = nodes.filter(n => n.parentId === groupId);
+    if (childNodes.length === 0) {
+      return { x: GROUP_PADDING, y: GROUP_PADDING + (INITIAL_GROUP_HEIGHT * (LABEL_HEIGHT_PERCENTAGE / 100)) };
+    }
+    const maxY = Math.max(...childNodes.map(n => n.position.y + NODE_HEIGHT));
+    return { x: GROUP_PADDING, y: maxY + VERTICAL_NODE_SPACING };
+  }, [nodes]);
+
   const onConnect = useCallback(
     (connection) => setEdges((eds) => addEdge(connection, eds)),
     [setEdges]
@@ -169,7 +232,7 @@ function FlowWithCustomNodes() {
           return nds.filter(n => n.id !== id && n.id !== nodeToDelete.parentId);
         } else {
           // Otherwise, update the parent's children array
-          return nds.map(n => {
+          const updatedNodes = nds.map(n => {
             if (n.id === nodeToDelete.parentId) {
               return {
                 ...n,
@@ -181,13 +244,18 @@ function FlowWithCustomNodes() {
             }
             return n;
           }).filter(n => n.id !== id);
+
+          // Schedule an update of the group dimensions
+          setTimeout(() => updateGroupDimensions(nodeToDelete.parentId), 0);
+
+          return updatedNodes;
         }
       }
       // If it's not in a group, just remove the node
       return nds.filter(n => n.id !== id);
     });
     setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, updateGroupDimensions]);
 
   const onDrop = useCallback(
     (event) => {
@@ -209,7 +277,7 @@ function FlowWithCustomNodes() {
       const droppedOnGroup = nodes.find(node => 
         node.type === 'group' &&
         position.x >= node.position.x &&
-        position.x <= node.position.x + node.style.width &&
+        position.x <= node.position.x + GROUP_WIDTH &&
         position.y >= node.position.y &&
         position.y <= node.position.y + node.style.height
       );
@@ -218,13 +286,11 @@ function FlowWithCustomNodes() {
 
       if (droppedOnGroup) {
         // If dropped on an existing group, add it to that group
+        const newNodePosition = getNextChildPosition(droppedOnGroup.id);
         const newNode = {
           id: newNodeId,
           type,
-          position: {
-            x: position.x - droppedOnGroup.position.x,
-            y: position.y - droppedOnGroup.position.y,
-          },
+          position: newNodePosition,
           data: { label, onDelete: onDeleteNode },
           parentId: droppedOnGroup.id,
           extent: 'parent',
@@ -236,12 +302,14 @@ function FlowWithCustomNodes() {
               ...n,
               data: {
                 ...n.data,
-                children: [...(n.data.children || []), newNodeId],
+                // Remove the children array from here
               },
             };
           }
           return n;
         }).concat(newNode));
+
+        setTimeout(() => updateGroupDimensions(droppedOnGroup.id), 0);
       } else {
         // If dropped on empty canvas, create a new group
         const newGroupId = `group-${groupCounter + 1}`;
@@ -250,15 +318,18 @@ function FlowWithCustomNodes() {
         const newGroup = {
           id: newGroupId,
           type: 'group',
-          position: { x: position.x - 50, y: position.y - 50 },
-          style: { width: 300, height: 300 },
-          data: { label: `Group ${groupCounter + 1}`, children: [newNodeId] },
+          position: position,
+          style: { width: GROUP_WIDTH, height: INITIAL_GROUP_HEIGHT },
+          data: { 
+            label: `Group ${groupCounter + 1}`, 
+            height: INITIAL_GROUP_HEIGHT
+          },
         };
 
         const newNode = {
           id: newNodeId,
           type,
-          position: { x: 50, y: 50 }, // Position within the group
+          position: { x: GROUP_PADDING, y: GROUP_PADDING + (INITIAL_GROUP_HEIGHT * (LABEL_HEIGHT_PERCENTAGE / 100)) },
           data: { label, onDelete: onDeleteNode },
           parentId: newGroupId,
           extent: 'parent',
@@ -267,7 +338,7 @@ function FlowWithCustomNodes() {
         setNodes(nds => [...nds, newGroup, newNode]);
       }
     },
-    [reactFlowInstance, nodes, setNodes, onDeleteNode, groupCounter]
+    [reactFlowInstance, nodes, setNodes, onDeleteNode, groupCounter, updateGroupDimensions, getNextChildPosition]
   );
 
   const onDragOver = useCallback((event) => {
@@ -290,6 +361,13 @@ function FlowWithCustomNodes() {
       default:
         return '#ff0072';
     }
+  };
+
+  const fitViewOptions = {
+    padding: 0.2,
+    minZoom: 0.5, // This sets the minimum zoom to 2x out (1 / 2 = 0.5)
+    maxZoom: 1,
+    duration: 800
   };
 
   return (
@@ -336,6 +414,7 @@ function FlowWithCustomNodes() {
           onDrop={onDrop}
           nodeTypes={nodeTypes}
           fitView
+          fitViewOptions={fitViewOptions}
           style={{ width: '100%', height: '100%' }}
         >
           <Background />
