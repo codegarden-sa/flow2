@@ -1,5 +1,5 @@
 // App.js
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, forwardRef } from 'react';
 import ReactFlow, {
   ReactFlowProvider,
   addEdge,
@@ -12,6 +12,7 @@ import ReactFlow, {
   Panel,
   useNodesState,
   useEdgesState,
+  applyNodeChanges,
 } from 'reactflow';
 import { Button, Input } from 'antd';
 import 'antd/dist/reset.css'; 
@@ -135,10 +136,9 @@ const CustomDelayNode = ({ data, id }) => {
   );
 };
 
-const GroupNode = ({ data }) => {
+const GroupNode = forwardRef(({ data }, ref) => {
   return (
-    <motion.div 
-    >
+    <motion.div ref={ref}>
       <div 
         style={{ 
           height: `${LABEL_HEIGHT}px`, 
@@ -188,15 +188,9 @@ const GroupNode = ({ data }) => {
       </motion.div>
     </motion.div>
   );
-};
+});
 
-const nodeTypes = {
-  textInput: CustomTextInputNode,
-  quickReply: CustomQuickReplyNode,
-  condition: CustomConditionNode,
-  delay: CustomDelayNode,
-  group: GroupNode,
-};
+const AnimatedCustomTextInputNode = motion.create(CustomTextInputNode);
 
 const initialNodes = [
   {
@@ -348,7 +342,7 @@ function FlowWithCustomNodes() {
           id: newGroupId,
           type: 'group',
           position: position,
-          style: { width: GROUP_WIDTH, height: INITIAL_GROUP_HEIGHT, backgroundColor: '#E6E6FA' },
+          style: { width: GROUP_WIDTH, height: INITIAL_GROUP_HEIGHT, backgroundColor: 'purple' },
           data: { 
             label: `Group ${groupCounter + 1}`, 
             height: INITIAL_GROUP_HEIGHT
@@ -411,6 +405,86 @@ function FlowWithCustomNodes() {
     duration: 800
   };
 
+  const updateNodePositions = useCallback((movedNodeId, newY) => {
+    setNodes(currentNodes => {
+      const movedNode = currentNodes.find(n => n.id === movedNodeId);
+      if (!movedNode || !movedNode.parentId) return currentNodes;
+
+      const parentNode = currentNodes.find(n => n.id === movedNode.parentId);
+      const siblingNodes = currentNodes.filter(n => n.parentId === movedNode.parentId && n.id !== movedNodeId);
+
+      // Sort siblings by vertical position
+      siblingNodes.sort((a, b) => a.position.y - b.position.y);
+
+      let updatedNodes = [...currentNodes];
+      let currentY = LABEL_HEIGHT + GROUP_PADDING;
+
+      siblingNodes.forEach(node => {
+        if (node.id === movedNodeId) {
+          node.position.y = newY;
+        }
+
+        if (node.position.y < currentY) {
+          node.position.y = currentY;
+        }
+
+        currentY = node.position.y + NODE_HEIGHT + VERTICAL_NODE_SPACING;
+      });
+
+      // Ensure the parent container is tall enough
+      const maxY = Math.max(...siblingNodes.map(n => n.position.y + NODE_HEIGHT));
+      const newParentHeight = Math.max(INITIAL_GROUP_HEIGHT, maxY + GROUP_PADDING);
+
+      updatedNodes = updatedNodes.map(n => 
+        n.id === parentNode.id 
+          ? { ...n, style: { ...n.style, height: newParentHeight } }
+          : n
+      );
+
+      return updatedNodes;
+    });
+  }, [setNodes]);
+
+  const customOnNodesChange = useCallback((changes) => {
+    const modifiedChanges = changes.map((change) => {
+      if (change.type === 'position' && change.dragging) {
+        const node = nodes.find((n) => n.id === change.id);
+        if (node && node.parentId) {
+          const parentNode = nodes.find((n) => n.id === node.parentId);
+          if (parentNode) {
+            const newY = Math.max(
+              LABEL_HEIGHT + GROUP_PADDING,
+              Math.min(
+                change.position.y,
+                parentNode.style.height - NODE_HEIGHT - GROUP_PADDING
+              )
+            );
+            updateNodePositions(node.id, newY);
+            return {
+              ...change,
+              position: {
+                x: node.position.x,
+                y: newY
+              }
+            };
+          }
+        }
+      }
+      return change;
+    });
+
+    onNodesChange(modifiedChanges);
+  }, [nodes, onNodesChange, updateNodePositions]);
+
+  // Modify your node types to use the animated versions
+  const nodeTypes = useMemo(() => ({
+    textInput: AnimatedCustomTextInputNode,
+    quickReply: motion.create(CustomQuickReplyNode),
+    condition: motion.create(CustomConditionNode),
+    delay: motion.create(CustomDelayNode),
+    group: GroupNode,
+  }), []);
+
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
       <div style={{ width: '250px', padding: '20px', borderRight: '1px solid #ccc' }}>
@@ -448,7 +522,7 @@ function FlowWithCustomNodes() {
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={onNodesChange}
+          onNodesChange={customOnNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onDragOver={onDragOver}
