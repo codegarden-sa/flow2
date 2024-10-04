@@ -17,15 +17,19 @@ import { Button, Input } from 'antd';
 import 'antd/dist/reset.css'; 
 import 'reactflow/dist/style.css';// Updated import for Ant Design CSS
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Define constants for node and group dimensions
 const NODE_WIDTH = 180;
 const NODE_HEIGHT = 80;
-const GROUP_PADDING = 20;
-const LABEL_HEIGHT_PERCENTAGE = 15;
-const GROUP_WIDTH = 250; // Adjusted for better visibility
+const GROUP_PADDING = 10;
+const LABEL_HEIGHT = 30; // Fixed height for the label
+const GROUP_WIDTH = 250;
 const INITIAL_GROUP_HEIGHT = 150; // Adjusted for better visibility
 const VERTICAL_NODE_SPACING = 20; // New constant for vertical spacing between nodes
+const GROUP_HEIGHT = 50;
+const EXPANDED_GROUP_WIDTH = 300;
+const EXPANDED_GROUP_HEIGHT = 250;
 
 const CustomTextInputNode = ({ data, id }) => {
   return (
@@ -132,37 +136,57 @@ const CustomDelayNode = ({ data, id }) => {
 };
 
 const GroupNode = ({ data }) => {
-  const labelHeight = `${LABEL_HEIGHT_PERCENTAGE}%`;
   return (
-    <div style={{ 
-      width: GROUP_WIDTH, 
-      height: '100%', 
-      border: '1px solid #ddd', 
-      borderRadius: 5, 
-      backgroundColor: 'white',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
-      <div style={{ 
-        height: labelHeight, 
-        padding: '5px 10px', 
-        fontWeight: 'bold', 
-        backgroundColor: 'pink',
-        borderBottom: '1px solid #ddd',
-        display: 'flex',
-        alignItems: 'center'
-      }}>
+    <motion.div 
+    >
+      <div 
+        style={{ 
+          height: `${LABEL_HEIGHT}px`, 
+          borderRadius: '5px',
+          padding: '5px 10px', 
+          fontWeight: 'bold', 
+          backgroundColor: 'pink',
+          borderBottom: '1px solid #ddd',
+          display: 'flex',
+          alignItems: 'center'
+        }}
+      >
         {data.label}
       </div>
-      <div style={{ 
-        flex: 1, 
-        padding: GROUP_PADDING,
-        position: 'relative'
-      }}>
+      <motion.div 
+        style={{ 
+          flex: 1, 
+          padding: GROUP_PADDING,
+          position: 'relative'
+        }}
+      >
+        <AnimatePresence>
+          {data.isExpanded && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                fontSize: '24px',
+                color: 'rgba(0,0,0,0.3)'
+              }}
+            >
+              Drop here
+            </motion.div>
+          )}
+        </AnimatePresence>
         {data.children}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -213,7 +237,7 @@ function FlowWithCustomNodes() {
   const getNextChildPosition = useCallback((groupId) => {
     const childNodes = nodes.filter(n => n.parentId === groupId);
     if (childNodes.length === 0) {
-      return { x: GROUP_PADDING, y: GROUP_PADDING + (INITIAL_GROUP_HEIGHT * (LABEL_HEIGHT_PERCENTAGE / 100)) };
+      return { x: GROUP_PADDING, y: GROUP_PADDING + (INITIAL_GROUP_HEIGHT * (LABEL_HEIGHT / 100)) };
     }
     const maxY = Math.max(...childNodes.map(n => n.position.y + NODE_HEIGHT));
     return { x: GROUP_PADDING, y: maxY + VERTICAL_NODE_SPACING };
@@ -307,7 +331,7 @@ function FlowWithCustomNodes() {
               ...n,
               data: {
                 ...n.data,
-                // Remove the children array from here
+                isExpanded: false // Reset expansion after drop
               },
             };
           }
@@ -324,7 +348,7 @@ function FlowWithCustomNodes() {
           id: newGroupId,
           type: 'group',
           position: position,
-          style: { width: GROUP_WIDTH, height: INITIAL_GROUP_HEIGHT },
+          style: { width: GROUP_WIDTH, height: INITIAL_GROUP_HEIGHT, backgroundColor: '#E6E6FA' },
           data: { 
             label: `Group ${groupCounter + 1}`, 
             height: INITIAL_GROUP_HEIGHT
@@ -334,7 +358,7 @@ function FlowWithCustomNodes() {
         const newNode = {
           id: newNodeId,
           type,
-          position: { x: GROUP_PADDING, y: GROUP_PADDING + (INITIAL_GROUP_HEIGHT * (LABEL_HEIGHT_PERCENTAGE / 100)) },
+          position: { x: GROUP_PADDING, y: GROUP_PADDING + (INITIAL_GROUP_HEIGHT * (LABEL_HEIGHT / 100)) },
           data: { label, onDelete: onDeleteNode },
           parentId: newGroupId,
           extent: 'parent',
@@ -349,7 +373,19 @@ function FlowWithCustomNodes() {
   const onDragOver = useCallback((event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-  }, []);
+    
+    const groupNode = nodes.find(n => 
+      n.type === 'group' &&
+      event.clientX > n.position.x &&
+      event.clientX < n.position.x + (n.data.isExpanded ? EXPANDED_GROUP_WIDTH : GROUP_WIDTH) &&
+      event.clientY > n.position.y &&
+      event.clientY < n.position.y + (n.data.isExpanded ? EXPANDED_GROUP_HEIGHT : GROUP_HEIGHT)
+    );
+
+    setNodes(nds => nds.map(n => 
+      n.type === 'group' ? { ...n, data: { ...n.data, isExpanded: n.id === groupNode?.id } } : n
+    ));
+  }, [nodes, setNodes]);
 
   const onDragStart = (event, nodeType, label) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
