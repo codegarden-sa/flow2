@@ -9,8 +9,11 @@ import ReactFlow, {
   Background,
   Controls,
   NodeToolbar,
+  Panel,
+  useNodesState,
+  useEdgesState,
 } from 'reactflow';
-import { Button } from 'antd';
+import { Button, Input } from 'antd';
 import 'antd/dist/reset.css'; 
 import 'reactflow/dist/style.css';// Updated import for Ant Design CSS
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -26,56 +29,107 @@ const initialNodes = [
 
 const initialEdges = [];
 
-const CustomTextInputNode = ({ data }) => {
+const CustomTextInputNode = ({ data, id }) => {
   return (
-    <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
-      <strong>{data.label}</strong>
-      <div>
-        <input
-          type="text"
-          placeholder="Type your answer"
-          style={{ marginTop: 5, width: '100%' }}
-        />
+    <>
+      <NodeToolbar
+        isVisible={data.toolbarVisible}
+        position={data.toolbarPosition}
+      >
+        <Button icon={<CopyOutlined />} onClick={() => console.log('Copy node', id)}>
+          Copy
+        </Button>
+        <Button icon={<DeleteOutlined />} onClick={() => data.onDelete(id)}>
+          Delete
+        </Button>
+      </NodeToolbar>
+      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
+        <strong>{data.label}</strong>
+        <div>
+          <Input
+            placeholder="Type your answer"
+            style={{ marginTop: 5, width: '100%' }}
+          />
+        </div>
+        <Handle type="source" position="right" />
+        <Handle type="target" position="left" />
       </div>
-      <Handle type="source" position="right" />
-      <Handle type="target" position="left" />
-    </div>
+    </>
   );
 };
 
-const CustomQuickReplyNode = ({ data }) => {
+const CustomQuickReplyNode = ({ data, id }) => {
   return (
-    <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
-      <strong>{data.label}</strong>
-      <div>
-        <Button style={{ marginRight: 5 }}>Yes</Button>
-        <Button>No</Button>
+    <>
+      <NodeToolbar
+        isVisible={data.toolbarVisible}
+        position={data.toolbarPosition}
+      >
+        <Button icon={<CopyOutlined />} onClick={() => console.log('Copy node', id)}>
+          Copy
+        </Button>
+        <Button icon={<DeleteOutlined />} onClick={() => data.onDelete(id)}>
+          Delete
+        </Button>
+      </NodeToolbar>
+      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
+        <strong>{data.label}</strong>
+        <div>
+          <Button style={{ marginRight: 5 }}>Yes</Button>
+          <Button>No</Button>
+        </div>
+        <Handle type="source" position="right" />
+        <Handle type="target" position="left" />
       </div>
-      <Handle type="source" position="right" />
-      <Handle type="target" position="left" />
-    </div>
+    </>
   );
 };
 
-const CustomConditionNode = ({ data }) => {
+const CustomConditionNode = ({ data, id }) => {
   return (
-    <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
-      <strong>{data.label}</strong>
-      <div>If condition is met</div>
-      <Handle type="source" position="right" />
-      <Handle type="target" position="left" />
-    </div>
+    <>
+      <NodeToolbar
+        isVisible={data.toolbarVisible}
+        position={data.toolbarPosition}
+      >
+        <Button icon={<CopyOutlined />} onClick={() => console.log('Copy node', id)}>
+          Copy
+        </Button>
+        <Button icon={<DeleteOutlined />} onClick={() => data.onDelete(id)}>
+          Delete
+        </Button>
+      </NodeToolbar>
+      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
+        <strong>{data.label}</strong>
+        <div>If condition is met</div>
+        <Handle type="source" position="right" />
+        <Handle type="target" position="left" />
+      </div>
+    </>
   );
 };
 
-const CustomDelayNode = ({ data }) => {
+const CustomDelayNode = ({ data, id }) => {
   return (
-    <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
-      <strong>{data.label}</strong>
+    <>
+    <NodeToolbar
+        isVisible={data.toolbarVisible}
+        position={data.toolbarPosition}
+      >
+        <Button icon={<CopyOutlined />} onClick={() => console.log('Copy node', id)}>
+          Copy
+        </Button>
+        <Button icon={<DeleteOutlined />} onClick={() => data.onDelete(id)}>
+          Delete
+        </Button>
+      </NodeToolbar>
+      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
+        <strong>{data.label}</strong>
       <div>Wait for X seconds</div>
       <Handle type="source" position="right" />
       <Handle type="target" position="left" />
     </div>
+    </>
   );
 };
 
@@ -87,46 +141,46 @@ const nodeTypes = {
 };
 
 function FlowWithCustomNodes() {
-  const [nodes, setNodes] = useState(initialNodes);
-  const [edges, setEdges] = useState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const reactFlowInstance = useReactFlow();
-
-  const onNodesChange = useCallback(
-    (changes) => setNodes((nds) => {
-      return changes.reduce((acc, change) => {
-        if (change.type === 'position' && change.dragging) {
-          const node = acc.find((n) => n.id === change.id);
-          if (node) {
-            node.position = change.position;
-          }
-        }
-        return acc;
-      }, [...nds]);
-    }),
-    []
-  );
-
-  const onEdgesChange = useCallback(
-    (changes) => setEdges((eds) => {
-      return changes.reduce((acc, change) => {
-        if (change.type === 'remove') {
-          return acc.filter((e) => e.id !== change.id);
-        }
-        return acc;
-      }, [...eds]);
-    }),
-    []
-  );
 
   const onConnect = useCallback(
     (connection) => setEdges((eds) => addEdge(connection, eds)),
     []
   );
 
+  const setToolbarPosition = useCallback(
+    (pos) =>
+      setNodes((nds) =>
+        nds.map((node) => ({
+          ...node,
+          data: { ...node.data, toolbarPosition: pos },
+        }))
+      ),
+    [setNodes]
+  );
+
+  const setToolbarVisibility = useCallback(
+    (visible) =>
+      setNodes((nds) =>
+        nds.map((node) => ({
+          ...node,
+          data: { ...node.data, toolbarVisible: visible },
+        }))
+      ),
+    [setNodes]
+  );
+
   const onDragOver = useCallback((event) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
   }, []);
+
+  const onDeleteNode = useCallback((id) => {
+    setNodes((nds) => nds.filter((node) => node.id !== id));
+    setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
+  }, [setNodes, setEdges]);
 
   const onDrop = useCallback(
     (event) => {
@@ -139,20 +193,20 @@ function FlowWithCustomNodes() {
         return;
       }
 
-      const position = reactFlowInstance.project({
+      const position = reactFlowInstance.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
       const newNode = {
-        id: `${nodes.length + 1}`,
+        id: `${type}-${nodes.length + 1}`,
         type,
         position,
-        data: { label },
+        data: { label, onDelete: onDeleteNode },
       };
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [reactFlowInstance, nodes]
+    [reactFlowInstance, nodes, setNodes, onDeleteNode]
   );
 
   const onDragStart = (event, nodeType, label) => {
