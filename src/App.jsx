@@ -14,6 +14,7 @@ import ReactFlow, {
   useEdgesState,
   applyNodeChanges,
   useViewport,
+  getBezierPath,
 } from 'reactflow';
 import { Button, Input, Card } from 'antd';
 import 'antd/dist/reset.css'; 
@@ -137,9 +138,20 @@ const CustomDelayNode = ({ data, id }) => {
   );
 };
 
-const GroupNode = forwardRef(({ data }, ref) => {
+const GroupNode = forwardRef(({ data, id }, ref) => {
   return (
     <motion.div ref={ref}>
+      <NodeToolbar
+        isVisible={data.toolbarVisible}
+        position={data.toolbarPosition || 'top'}
+      >
+        <Button icon={<CopyOutlined />} onClick={() => console.log('Copy group', id)}>
+          Copy
+        </Button>
+        <Button icon={<DeleteOutlined />} onClick={() => data.onDelete(id)}>
+          Delete
+        </Button>
+      </NodeToolbar>
       <div 
         style={{ 
           height: `${LABEL_HEIGHT}px`, 
@@ -228,6 +240,44 @@ const initialNodes = [
 
 const initialEdges = [];
 
+// Define a custom edge component
+const CustomEdge = ({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style = {},
+  markerEnd,
+}) => {
+  const [edgePath] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
+
+  return (
+    <path
+      id={id}
+      style={{
+        ...style,
+        strokeWidth: 3, // Increase edge size by 3x
+        stroke: '#b1b1b7', // Edge color
+        strokeLinecap: 'round', // Round the start and end of the path
+        fill: 'none',
+      }}
+      className="react-flow__edge-path"
+      d={edgePath}
+      markerEnd={markerEnd}
+    />
+  );
+};
+
 function FlowWithCustomNodes() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -264,14 +314,18 @@ function FlowWithCustomNodes() {
   }, [nodes]);
 
   const onConnect = useCallback(
-    (connection) => setEdges((eds) => addEdge(connection, eds)),
+    (params) => setEdges((eds) => addEdge({ ...params, type: 'default' }, eds)),
     [setEdges]
   );
 
   const onDeleteNode = useCallback((id) => {
     setNodes((nds) => {
       const nodeToDelete = nds.find(n => n.id === id);
-      if (nodeToDelete && nodeToDelete.parentId) {
+      if (nodeToDelete && nodeToDelete.type === 'group') {
+        // If it's a group, remove the group and all its children
+        return nds.filter(n => n.id !== id && n.parentId !== id);
+      } else if (nodeToDelete && nodeToDelete.parentId) {
+        // If it's a child node, update the parent's children array
         const parentGroup = nds.find(n => n.id === nodeToDelete.parentId);
         const updatedParentChildren = parentGroup.data.children.filter(childId => childId !== id);
         
@@ -371,7 +425,10 @@ function FlowWithCustomNodes() {
           style: { width: GROUP_WIDTH, height: INITIAL_GROUP_HEIGHT, backgroundColor: '#E6E6FA' },
           data: { 
             label: `Group ${groupCounter + 1}`, 
-            height: INITIAL_GROUP_HEIGHT
+            height: INITIAL_GROUP_HEIGHT,
+            onDelete: onDeleteNode,
+            toolbarVisible: false,
+            toolbarPosition: 'top'
           },
         };
 
@@ -525,6 +582,23 @@ function FlowWithCustomNodes() {
     start: StartNode, // Add the new StartNode type
   }), []);
 
+  const edgeTypes = useMemo(() => ({
+    default: CustomEdge,
+  }), []);
+
+  // Function to get the execution order of nodes within a group
+  const getExecutionOrder = useCallback((groupId) => {
+    const groupNodes = nodes.filter(n => n.parentId === groupId);
+    return groupNodes.sort((a, b) => a.position.y - b.position.y).map(n => n.id);
+  }, [nodes]);
+
+  // Example function to execute nodes in order
+  const executeNodesInOrder = useCallback((groupId) => {
+    const executionOrder = getExecutionOrder(groupId);
+    console.log(`Execution order for group ${groupId}:`, executionOrder);
+    // Here you would implement the actual execution logic
+  }, [getExecutionOrder]);
+
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
       <div style={{ width: '250px', padding: '20px', borderRight: '1px solid #ccc' }}>
@@ -568,6 +642,7 @@ function FlowWithCustomNodes() {
           onDragOver={onDragOver}
           onDrop={onDrop}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           fitView={false}
           defaultViewport={{ x: 0, y: 0, zoom: 1 }}
           style={{ width: '100%', height: '100%' }}
