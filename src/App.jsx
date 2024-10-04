@@ -18,17 +18,6 @@ import 'antd/dist/reset.css';
 import 'reactflow/dist/style.css';// Updated import for Ant Design CSS
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 
-const initialNodes = [
-  {
-    id: 'start',
-    type: 'input', // Default node type
-    data: { label: 'Start' },
-    position: { x: 250, y: 5 },
-  },
-];
-
-const initialEdges = [];
-
 const CustomTextInputNode = ({ data, id }) => {
   return (
     <>
@@ -138,47 +127,57 @@ const nodeTypes = {
   quickReply: CustomQuickReplyNode,
   condition: CustomConditionNode,
   delay: CustomDelayNode,
+  group: ({ data }) => (
+    <div style={{ padding: 10, border: '1px solid #ddd', borderRadius: 5, backgroundColor: 'rgba(240,240,240,0.5)' }}>
+      <div style={{ fontWeight: 'bold', marginBottom: 10 }}>{data.label}</div>
+      {data.children}
+    </div>
+  ),
 };
+
+const initialNodes = [
+  {
+    id: 'start',
+    type: 'textInput',
+    position: { x: 0, y: 0 },
+    data: { label: 'Start Node' },
+  },
+];
+
+const initialEdges = [];
 
 function FlowWithCustomNodes() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [groupCounter, setGroupCounter] = useState(0);
   const reactFlowInstance = useReactFlow();
 
   const onConnect = useCallback(
     (connection) => setEdges((eds) => addEdge(connection, eds)),
-    []
+    [setEdges]
   );
-
-  const setToolbarPosition = useCallback(
-    (pos) =>
-      setNodes((nds) =>
-        nds.map((node) => ({
-          ...node,
-          data: { ...node.data, toolbarPosition: pos },
-        }))
-      ),
-    [setNodes]
-  );
-
-  const setToolbarVisibility = useCallback(
-    (visible) =>
-      setNodes((nds) =>
-        nds.map((node) => ({
-          ...node,
-          data: { ...node.data, toolbarVisible: visible },
-        }))
-      ),
-    [setNodes]
-  );
-
-  const onDragOver = useCallback((event) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
 
   const onDeleteNode = useCallback((id) => {
-    setNodes((nds) => nds.filter((node) => node.id !== id));
+    setNodes((nds) => {
+      const nodeToDelete = nds.find(n => n.id === id);
+      if (nodeToDelete && nodeToDelete.parentId) {
+        // If the node has a parent, remove it from the parent's children
+        return nds.map(n => {
+          if (n.id === nodeToDelete.parentId) {
+            return {
+              ...n,
+              data: {
+                ...n.data,
+                children: n.data.children.filter(childId => childId !== id)
+              }
+            };
+          }
+          return n;
+        }).filter(n => n.id !== id);
+      }
+      // If it's a group node, also delete all its children
+      return nds.filter(n => n.id !== id && n.parentId !== id);
+    });
     setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
   }, [setNodes, setEdges]);
 
@@ -197,17 +196,40 @@ function FlowWithCustomNodes() {
         x: event.clientX,
         y: event.clientY,
       });
+
+      // Create a new group for the dropped node
+      const newGroupId = `group-${groupCounter + 1}`;
+      setGroupCounter(prev => prev + 1);
+      const newGroup = {
+        id: newGroupId,
+        type: 'group',
+        position: { x: position.x - 50, y: position.y - 50 },
+        style: { width: 300, height: 300 },
+        data: { label: `Group ${groupCounter + 1}`, children: [] },
+      };
+
       const newNode = {
         id: `${type}-${nodes.length + 1}`,
         type,
-        position,
+        position: { x: 50, y: 50 }, // Position within the group
         data: { label, onDelete: onDeleteNode },
+        parentId: newGroupId,
+        extent: 'parent',
       };
 
-      setNodes((nds) => nds.concat(newNode));
+      setNodes(nds => [
+        ...nds,
+        newGroup,
+        newNode
+      ]);
     },
-    [reactFlowInstance, nodes, setNodes, onDeleteNode]
+    [reactFlowInstance, nodes, setNodes, onDeleteNode, groupCounter]
   );
+
+  const onDragOver = useCallback((event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
 
   const onDragStart = (event, nodeType, label) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
