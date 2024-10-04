@@ -13,15 +13,16 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   applyNodeChanges,
+  useViewport,
 } from 'reactflow';
-import { Button, Input } from 'antd';
+import { Button, Input, Card } from 'antd';
 import 'antd/dist/reset.css'; 
 import 'reactflow/dist/style.css';// Updated import for Ant Design CSS
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Define constants for node and group dimensions
-const NODE_WIDTH = 180;
+const NODE_WIDTH = 230;
 const NODE_HEIGHT = 80;
 const GROUP_PADDING = 10;
 const LABEL_HEIGHT = 30; // Fixed height for the label
@@ -46,7 +47,7 @@ const CustomTextInputNode = ({ data, id }) => {
           Delete
         </Button>
       </NodeToolbar>
-      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5', width: '100%' }}>
+      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#e6ffcc', width: NODE_WIDTH }}>
         <strong>{data.label}</strong>
         <div>
           <Input
@@ -75,7 +76,7 @@ const CustomQuickReplyNode = ({ data, id }) => {
           Delete
         </Button>
       </NodeToolbar>
-      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
+      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5', width: NODE_WIDTH }}>
         <strong>{data.label}</strong>
         <div>
           <Button style={{ marginRight: 5 }}>Yes</Button>
@@ -102,7 +103,7 @@ const CustomConditionNode = ({ data, id }) => {
           Delete
         </Button>
       </NodeToolbar>
-      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
+      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5', width: NODE_WIDTH }}>
         <strong>{data.label}</strong>
         <div>If condition is met</div>
         <Handle type="source" position="right" />
@@ -126,7 +127,7 @@ const CustomDelayNode = ({ data, id }) => {
           Delete
         </Button>
       </NodeToolbar>
-      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5' }}>
+      <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5', width: NODE_WIDTH }}>
         <strong>{data.label}</strong>
       <div>Wait for X seconds</div>
       <Handle type="source" position="right" />
@@ -192,12 +193,36 @@ const GroupNode = forwardRef(({ data }, ref) => {
 
 const AnimatedCustomTextInputNode = motion.create(CustomTextInputNode);
 
+const StartNode = ({ data }) => {
+  return (
+    <Card
+      style={{
+        width: 120,
+        height: NODE_HEIGHT,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#6ede87',
+        border: '2px solid #4caf50',
+      }}
+    >
+      <strong>{data.label}</strong>
+      <Handle
+        type="source"
+        position="right"
+        id="start-handle"
+        style={{ bottom: '-5px', right: '-5px' }}
+      />
+    </Card>
+  );
+};
+
 const initialNodes = [
   {
     id: 'start',
-    type: 'textInput',
-    position: { x: 0, y: 0 },
-    data: { label: 'Start Node' },
+    type: 'start',
+    position: { x: 50, y: 50 }, // Adjust these values to position the node in the top-left
+    data: { label: 'Start' },
   },
 ];
 
@@ -208,6 +233,7 @@ function FlowWithCustomNodes() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [groupCounter, setGroupCounter] = useState(0);
   const reactFlowInstance = useReactFlow();
+  const { x, y, zoom } = useViewport();
 
   const updateGroupDimensions = useCallback((groupId) => {
     setNodes(nds => {
@@ -316,7 +342,7 @@ function FlowWithCustomNodes() {
           data: { label, onDelete: onDeleteNode },
           parentId: droppedOnGroup.id,
           extent: 'parent',
-          style: { width: GROUP_WIDTH - (GROUP_PADDING * 2) } // Ensure child node fits within group
+          style: { width: NODE_WIDTH } // Use the constant NODE_WIDTH
         };
 
         setNodes(nds => nds.map(n => {
@@ -342,7 +368,7 @@ function FlowWithCustomNodes() {
           id: newGroupId,
           type: 'group',
           position: position,
-          style: { width: GROUP_WIDTH, height: INITIAL_GROUP_HEIGHT, backgroundColor: 'purple' },
+          style: { width: GROUP_WIDTH, height: INITIAL_GROUP_HEIGHT, backgroundColor: '#E6E6FA' },
           data: { 
             label: `Group ${groupCounter + 1}`, 
             height: INITIAL_GROUP_HEIGHT
@@ -356,6 +382,7 @@ function FlowWithCustomNodes() {
           data: { label, onDelete: onDeleteNode },
           parentId: newGroupId,
           extent: 'parent',
+          style: { width: NODE_WIDTH } // Use the constant NODE_WIDTH
         };
 
         setNodes(nds => [...nds, newGroup, newNode]);
@@ -400,9 +427,10 @@ function FlowWithCustomNodes() {
 
   const fitViewOptions = {
     padding: 0.2,
-    minZoom: 0.5, // This sets the minimum zoom to 2x out (1 / 2 = 0.5)
+    minZoom: 0.5,
     maxZoom: 1,
-    duration: 800
+    duration: 800,
+    includeHiddenNodes: false,
   };
 
   const updateNodePositions = useCallback((movedNodeId, newY) => {
@@ -476,6 +504,17 @@ function FlowWithCustomNodes() {
     onNodesChange(modifiedChanges);
   }, [nodes, onNodesChange, updateNodePositions]);
 
+  useEffect(() => {
+    // Ensure the start node stays in the top-left corner
+    setNodes((nds) =>
+      nds.map((node) =>
+        node.id === 'start'
+          ? { ...node, position: { x: 50 / zoom - x, y: 50 / zoom - y } }
+          : node
+      )
+    );
+  }, [x, y, zoom, setNodes]);
+
   // Modify your node types to use the animated versions
   const nodeTypes = useMemo(() => ({
     textInput: AnimatedCustomTextInputNode,
@@ -483,6 +522,7 @@ function FlowWithCustomNodes() {
     condition: motion.create(CustomConditionNode),
     delay: motion.create(CustomDelayNode),
     group: GroupNode,
+    start: StartNode, // Add the new StartNode type
   }), []);
 
   return (
@@ -528,8 +568,8 @@ function FlowWithCustomNodes() {
           onDragOver={onDragOver}
           onDrop={onDrop}
           nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={fitViewOptions}
+          fitView={false}
+          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
           style={{ width: '100%', height: '100%' }}
         >
           <Background />
