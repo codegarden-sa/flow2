@@ -2,6 +2,8 @@
 import React, { useState, useCallback, useEffect, useMemo, forwardRef } from 'react';
 import ReactFlow, {
   ReactFlowProvider,
+  BaseEdge,
+  EdgeLabelRenderer,
   addEdge,
   Handle,
   useReactFlow,
@@ -15,6 +17,7 @@ import ReactFlow, {
   applyNodeChanges,
   useViewport,
   getBezierPath,
+  getSmoothStepPath,
 } from 'reactflow';
 import { Button, Input, Card } from 'antd';
 import 'antd/dist/reset.css'; 
@@ -246,6 +249,43 @@ const initialNodes = [
 const initialEdges = [];
 
 // Define a custom edge component
+// const CustomEdge = ({
+//   id,
+//   sourceX,
+//   sourceY,
+//   targetX,
+//   targetY,
+//   sourcePosition,
+//   targetPosition,
+//   style = {},
+//   markerEnd,
+// }) => {
+//   const [edgePath] = getBezierPath({
+//     sourceX,
+//     sourceY,
+//     sourcePosition,
+//     targetX,
+//     targetY,
+//     targetPosition,
+//   });
+
+//   return (
+//     <path
+//       id={id}
+//       style={{
+//         ...style,
+//         strokeWidth: 3, // Increase edge size by 3x
+//         stroke: '#b1b1b7', // Edge color
+//         strokeLinecap: 'round', // Round the start and end of the path
+//         fill: 'none',
+//       }}
+//       className="react-flow__edge-path"
+//       d={edgePath}
+//       markerEnd={markerEnd}
+//     />
+//   );
+// };
+
 const CustomEdge = ({
   id,
   sourceX,
@@ -257,7 +297,8 @@ const CustomEdge = ({
   style = {},
   markerEnd,
 }) => {
-  const [edgePath] = getBezierPath({
+  const { setEdges } = useReactFlow();
+  const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -266,22 +307,34 @@ const CustomEdge = ({
     targetPosition,
   });
 
+  const onEdgeClick = () => {
+    setEdges((edges) => edges.filter((edge) => edge.id !== id));
+  };
+
   return (
-    <path
-      id={id}
-      style={{
-        ...style,
-        strokeWidth: 3, // Increase edge size by 3x
-        stroke: '#b1b1b7', // Edge color
-        strokeLinecap: 'round', // Round the start and end of the path
-        fill: 'none',
-      }}
-      className="react-flow__edge-path"
-      d={edgePath}
-      markerEnd={markerEnd}
-    />
+    <>
+      <BaseEdge path={edgePath} markerEnd={markerEnd} style={{...style, strokeWidth: 3, stroke: '#b1b1b7', strokeLinecap: 'round', fill: 'none', }} />
+      <EdgeLabelRenderer>
+        <div
+          style={{
+            position: 'absolute',
+            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            fontSize: 12,
+            // everything inside EdgeLabelRenderer has no pointer events by default
+            // if you have an interactive element, set pointer-events: all
+            pointerEvents: 'all',
+          }}
+          className="nodrag nopan"
+        >
+          <button className="edgebutton" onClick={onEdgeClick}>
+            ×
+          </button>
+        </div>
+      </EdgeLabelRenderer>
+    </>
   );
-};
+}
+
 
 function FlowWithCustomNodes() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
