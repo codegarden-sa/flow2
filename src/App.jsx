@@ -40,13 +40,10 @@ const CustomTextInputNode = forwardRef(({ data, id }, ref) => {
       <NodeToolbar
         isVisible={data.toolbarVisible}
         position={data.toolbarPosition}
+        style={{ left: 0, top: '1.5%' }}
       >
-        <Button icon={<CopyOutlined />} onClick={() => console.log('Copy node', id)}>
-          Copy
-        </Button>
-        <Button icon={<DeleteOutlined />} onClick={() => data.onDelete(id)}>
-          Delete
-        </Button>
+        <CopyOutlined onClick={() => console.log('Copy node', id)}/>        
+        <DeleteOutlined onClick={() => data.onDelete(id)}/>
       </NodeToolbar>
       <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#e6ffcc', width: NODE_WIDTH }}>
         <strong>{data.label}</strong>
@@ -302,7 +299,7 @@ function FlowWithCustomNodes() {
       if (childNodes.length === 0) return nds;
 
       const maxY = Math.max(...childNodes.map(n => n.position.y + NODE_HEIGHT));
-      const newHeight = Math.max(INITIAL_GROUP_HEIGHT, maxY + GROUP_PADDING);
+      const newHeight = maxY + GROUP_PADDING;
 
       return nds.map(n => n.id === groupId ? {
         ...n,
@@ -315,7 +312,7 @@ function FlowWithCustomNodes() {
   const getNextChildPosition = useCallback((groupId) => {
     const childNodes = nodes.filter(n => n.parentId === groupId);
     if (childNodes.length === 0) {
-      return { x: GROUP_PADDING, y: GROUP_PADDING + (INITIAL_GROUP_HEIGHT * (LABEL_HEIGHT / 100)) };
+      return { x: GROUP_PADDING, y: LABEL_HEIGHT + GROUP_PADDING };
     }
     const maxY = Math.max(...childNodes.map(n => n.position.y + NODE_HEIGHT));
     return { x: GROUP_PADDING, y: maxY + VERTICAL_NODE_SPACING };
@@ -333,32 +330,29 @@ function FlowWithCustomNodes() {
         // If it's a group, remove the group and all its children
         return nds.filter(n => n.id !== id && n.parentId !== id);
       } else if (nodeToDelete && nodeToDelete.parentId) {
-        // If it's a child node, update the parent's children array
-        const parentGroup = nds.find(n => n.id === nodeToDelete.parentId);
-        const updatedParentChildren = parentGroup.data.children.filter(childId => childId !== id);
+        // If it's a child node, remove it and update the parent group
+        const updatedNodes = nds.filter(n => n.id !== id);
+        const remainingChildren = updatedNodes.filter(n => n.parentId === nodeToDelete.parentId);
         
-        if (updatedParentChildren.length === 0) {
-          // If this was the last child, remove both the node and the parent group
-          return nds.filter(n => n.id !== id && n.id !== nodeToDelete.parentId);
+        if (remainingChildren.length === 0) {
+          // If this was the last child, remove the parent group as well
+          return updatedNodes.filter(n => n.id !== nodeToDelete.parentId);
         } else {
-          // Otherwise, update the parent's children array
-          const updatedNodes = nds.map(n => {
-            if (n.id === nodeToDelete.parentId) {
-              return {
-                ...n,
-                data: {
-                  ...n.data,
-                  children: updatedParentChildren
-                }
-              };
+          // Recalculate the positions of remaining children
+          let currentY = LABEL_HEIGHT + GROUP_PADDING;
+          const repositionedNodes = updatedNodes.map(n => {
+            if (n.parentId === nodeToDelete.parentId) {
+              const newNode = { ...n, position: { x: GROUP_PADDING, y: currentY } };
+              currentY += NODE_HEIGHT + VERTICAL_NODE_SPACING;
+              return newNode;
             }
             return n;
-          }).filter(n => n.id !== id);
+          });
 
           // Schedule an update of the group dimensions
           setTimeout(() => updateGroupDimensions(nodeToDelete.parentId), 0);
-
-          return updatedNodes;
+          
+          return repositionedNodes;
         }
       }
       // If it's not in a group, just remove the node
