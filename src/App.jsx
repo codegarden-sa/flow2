@@ -34,7 +34,7 @@ const GROUP_HEIGHT = 50;
 const EXPANDED_GROUP_WIDTH = 300;
 const EXPANDED_GROUP_HEIGHT = 250;
 
-const CustomTextInputNode = ({ data, id }) => {
+const CustomTextInputNode = forwardRef(({ data, id }, ref) => {
   return (
     <>
       <NodeToolbar
@@ -56,14 +56,12 @@ const CustomTextInputNode = ({ data, id }) => {
             style={{ marginTop: 5, width: '100%', padding: '5px' }}
           />
         </div>
-        <Handle type="source" position="right" style={{ top: '50%' }} />
-        <Handle type="target" position="left" style={{ top: '50%' }} />
       </div>
     </>
   );
-};
+});
 
-const CustomQuickReplyNode = ({ data, id }) => {
+const CustomQuickReplyNode = forwardRef(({ data, id }, ref) => {
   return (
     <>
       <NodeToolbar
@@ -83,14 +81,12 @@ const CustomQuickReplyNode = ({ data, id }) => {
           <Button style={{ marginRight: 5 }}>Yes</Button>
           <Button>No</Button>
         </div>
-        <Handle type="source" position="right" />
-        <Handle type="target" position="left" />
       </div>
     </>
   );
-};
+});
 
-const CustomConditionNode = ({ data, id }) => {
+const CustomConditionNode = forwardRef(({ data, id }, ref) => {
   return (
     <>
       <NodeToolbar
@@ -107,14 +103,12 @@ const CustomConditionNode = ({ data, id }) => {
       <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5', width: NODE_WIDTH }}>
         <strong>{data.label}</strong>
         <div>If condition is met</div>
-        <Handle type="source" position="right" />
-        <Handle type="target" position="left" />
       </div>
     </>
   );
-};
+});
 
-const CustomDelayNode = ({ data, id }) => {
+const CustomDelayNode = forwardRef(({ data, id }, ref) => {
   return (
     <>
     <NodeToolbar
@@ -131,12 +125,10 @@ const CustomDelayNode = ({ data, id }) => {
       <div style={{ padding: 10, borderRadius: 5, backgroundColor: '#f0f2f5', width: NODE_WIDTH }}>
         <strong>{data.label}</strong>
       <div>Wait for X seconds</div>
-      <Handle type="source" position="right" />
-      <Handle type="target" position="left" />
     </div>
     </>
   );
-};
+});
 
 const GroupNode = forwardRef(({ data, id }, ref) => {
   return (
@@ -199,11 +191,26 @@ const GroupNode = forwardRef(({ data, id }, ref) => {
         </AnimatePresence>
         {data.children}
       </motion.div>
+      <Handle
+        type="target"
+        position="left"
+        style={{ top: '15px', left: '-16px', border: 'none' }}
+      className="w-4 h-4 !bg-teal-00 rounded-sm"
+      />
+      <Handle
+        type="source"
+        position="right"
+        style={{ top: '90%', right: '-16px', border: 'none' }}
+        className="w-4 h-4 !bg-teal-00 rounded-sm"
+      />
     </motion.div>
   );
 });
 
-const AnimatedCustomTextInputNode = motion.create(CustomTextInputNode);
+const AnimatedCustomTextInputNode = motion(CustomTextInputNode);
+const AnimatedCustomQuickReplyNode = motion(CustomQuickReplyNode);
+const AnimatedCustomConditionNode = motion(CustomConditionNode);
+const AnimatedCustomDelayNode = motion(CustomDelayNode);
 
 const StartNode = ({ data }) => {
   return (
@@ -223,7 +230,8 @@ const StartNode = ({ data }) => {
         type="source"
         position="right"
         id="start-handle"
-        style={{ bottom: '-5px', right: '-5px' }}
+        style={{ bottom: '-5px', right: '-16px', border: 'none' }}
+           className="w-4 h-4 !bg-teal-00 rounded-sm"
       />
     </Card>
   );
@@ -575,9 +583,9 @@ function FlowWithCustomNodes() {
   // Modify your node types to use the animated versions
   const nodeTypes = useMemo(() => ({
     textInput: AnimatedCustomTextInputNode,
-    quickReply: motion.create(CustomQuickReplyNode),
-    condition: motion.create(CustomConditionNode),
-    delay: motion.create(CustomDelayNode),
+    quickReply: AnimatedCustomQuickReplyNode,
+    condition: AnimatedCustomConditionNode,
+    delay: AnimatedCustomDelayNode,
     group: GroupNode,
     start: StartNode, // Add the new StartNode type
   }), []);
