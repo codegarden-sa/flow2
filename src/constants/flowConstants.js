@@ -1,0 +1,10 @@
+export const NODE_WIDTH = 230;
+export const NODE_HEIGHT = 80;
+export const GROUP_PADDING = 10;
+export const LABEL_HEIGHT = 30;
+export const GROUP_WIDTH = 250;
+export const INITIAL_GROUP_HEIGHT = 150;
+export const VERTICAL_NODE_SPACING = 20;
+export const GROUP_HEIGHT = 50;
+export const EXPANDED_GROUP_WIDTH = 300;
+export const EXPANDED_GROUP_HEIGHT = 250;
