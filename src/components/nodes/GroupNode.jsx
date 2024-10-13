@@ -1,20 +1,33 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useEffect } from 'react';
 import { NodeToolbar, Handle } from 'reactflow';
 import { Button } from 'antd';
-import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Copy, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const LABEL_HEIGHT = 30;
-const GROUP_PADDING = 10;
+import { LABEL_HEIGHT, GROUP_PADDING, CHILD_MARGIN } from '../../constants/flowConstants';
 
 const GroupNode = forwardRef(({ data, id }, ref) => {
+  useEffect(() => {
+    if (data.children && data.children.length > 0) {
+      const totalChildrenHeight = data.children.reduce((acc, child) => {
+        // Assuming each child has a height property. Adjust if necessary.
+        return acc + (child.props.style.height || 0) + CHILD_MARGIN;
+      }, 0);
+
+      const newHeight = LABEL_HEIGHT + GROUP_PADDING * 2 + totalChildrenHeight;
+      if (data.onResize) {
+        data.onResize(id, newHeight);
+      }
+    }
+  }, [data.children, id, data.onResize]);
+
   return (
-    <motion.div ref={ref}>
+    <motion.div ref={ref} style={{ minHeight: data.style?.height }}>
       <NodeToolbar isVisible={data.toolbarVisible} position={data.toolbarPosition || 'top'}>
-        <Button icon={<CopyOutlined />} onClick={() => console.log('Copy group', id)}>
+        <Button icon={<Copy size={16} />} onClick={() => console.log('Copy group', id)}>
           Copy
         </Button>
-        <Button icon={<DeleteOutlined />} onClick={() => data.onDelete(id)}>
+        <Button icon={<Trash2 size={16} />} onClick={() => data.onDelete(id)}>
           Delete
         </Button>
       </NodeToolbar>
@@ -63,7 +76,9 @@ const GroupNode = forwardRef(({ data, id }, ref) => {
             </motion.div>
           )}
         </AnimatePresence>
-        {data.children}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: `${CHILD_MARGIN}px` }}>
+          {data.children}
+        </div>
       </motion.div>
       <Handle
         type='target'

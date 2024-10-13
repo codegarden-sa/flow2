@@ -8,3 +8,4 @@ export const VERTICAL_NODE_SPACING = 20;
 export const GROUP_HEIGHT = 50;
 export const EXPANDED_GROUP_WIDTH = 300;
 export const EXPANDED_GROUP_HEIGHT = 250;
+export const CHILD_MARGIN = 20;

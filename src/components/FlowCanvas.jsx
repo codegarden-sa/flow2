@@ -19,13 +19,16 @@ import AnimatedCustomConditionNode from './nodes/CustomConditionNode';
 import AnimatedCustomDelayNode from './nodes/CustomDelayNode';
 import useCustomNodes from '../hooks/useCustomNodes';
 
-const NODE_WIDTH = 230;
-const NODE_HEIGHT = 80;
-const GROUP_PADDING = 10;
-const LABEL_HEIGHT = 30;
-const GROUP_WIDTH = 250;
-const INITIAL_GROUP_HEIGHT = 150;
-const VERTICAL_NODE_SPACING = 20;
+import {
+  NODE_WIDTH,
+  NODE_HEIGHT,
+  GROUP_PADDING,
+  LABEL_HEIGHT,
+  GROUP_WIDTH,
+  INITIAL_GROUP_HEIGHT,
+  VERTICAL_NODE_SPACING,
+  CHILD_MARGIN,
+} from '../constants/flowConstants';
 
 const initialNodes = [
   {

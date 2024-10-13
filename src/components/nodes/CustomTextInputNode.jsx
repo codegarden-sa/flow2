@@ -25,7 +25,6 @@ const CustomTextInputNode = forwardRef(({ data, id }, ref) => {
           borderRadius: 10,
           backgroundColor: '#f0f5ff',
           width: NODE_WIDTH,
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
           border: '1px solid #d6e4ff',
         }}
       >
