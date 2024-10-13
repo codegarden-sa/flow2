@@ -1,15 +1,17 @@
 import React from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import FlowCanvas from './components/FlowCanvas';
-import Sidebar from './components/Sidebar';
+import 'reactflow/dist/style.css';
+import 'antd/dist/reset.css';
 
-export default function App() {
+function App() {
   return (
     <ReactFlowProvider>
-      <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
-        <Sidebar />
+      <div style={{ width: '100vw', height: '100vh' }}>
         <FlowCanvas />
       </div>
     </ReactFlowProvider>
   );
 }
+
+export default App;

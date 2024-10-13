@@ -1,8 +1,7 @@
 import React, { forwardRef } from 'react';
-import { NodeToolbar, Handle } from 'reactflow';
+import { NodeToolbar } from 'reactflow';
 import { CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
-import { motion } from 'framer-motion';
 import { NODE_WIDTH } from '../../constants/flowConstants';
 
 const CustomTextInputNode = forwardRef(({ data, id }, ref) => {
@@ -20,17 +19,13 @@ const CustomTextInputNode = forwardRef(({ data, id }, ref) => {
         <strong>{data.label}</strong>
         <div>
           <Input
-            placeholder="Type your answer"
+            placeholder='Type your answer'
             style={{ marginTop: 5, width: '100%', padding: '5px' }}
           />
         </div>
       </div>
-      <Handle type="target" position="left" />
-      <Handle type="source" position="right" />
     </>
   );
 });
 
-const AnimatedCustomTextInputNode = motion(CustomTextInputNode);
-
-export default AnimatedCustomTextInputNode;
+export default CustomTextInputNode;
